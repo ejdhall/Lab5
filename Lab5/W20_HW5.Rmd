@@ -1,0 +1,341 @@
+---
+title: "Homework 5"
+author: "Evan Hall"
+date: "02/05/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "~/Lab5")
+```
+
+# Load packages
+```{r Load packages, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+library(tidyverse)
+library(readxl)
+library(broom)
+library(cowplot)
+set.seed(7)
+```
+
+Save any data frames generated to curated_data directory, save all plots to figures directory. Based on assumptions, clearly state which statistical test will be used and why. Include any statistics (p- or R-values) as comments after the tests.
+
+# Question 1
+
+Use the SCFA wide dataframe from Lab 5. Check assumptions, conduct statistical tests, make a plot, to answer the question, "Which supplement causes the greatest increase in acetate concentrations?"
+```{r}
+# import and filter data set (q1_df)
+q1_df <- read_delim(file = "raw_data/scfa_wide.txt", 
+                        delim = "\t", escape_double = FALSE, 
+                        trim_ws = TRUE, na=c("NA"),
+                        col_names = TRUE,
+                        col_types = cols(participant_id = col_character(),
+                                         semester = col_character(),
+                                         supplement_consumed = col_character(),
+                                         quantity_compliant = col_character(),
+                                         frequency = col_character(),
+                                         acetate_delta = col_double(),
+                                         butyrate_delta = col_double(),
+                                         propionate_delta = col_double())) %>%
+  filter(semester != "Winter2015",
+         quantity_compliant != "no")
+```
+
+```{r}
+# check assumptions
+# Variance
+bartlett.test(acetate_delta ~ supplement_consumed, data = q1_df)
+# ALTERNATIVE 
+```
+
+```{r}
+# conduct statistical test
+aov_results <- aov(acetate_delta ~ supplement_consumed, data = q1_df)
+summary(aov_results)
+```
+```{r}
+tuk_delta <- tidy(TukeyHSD(aov_results)) %>%
+  mutate(adj.p.value = round(adj.p.value, digits = 2)) #round resulting p-values
+ #filter Tukey output for significant results 
+write_delim(tuk_delta, path = "curated_data/tukey_result_acetate_delta.txt",
+            delim = "\t", col_names = TRUE, quote = FALSE)
+```
+
+```{r}
+# make and save plot (q1_plot)
+q1_plot <-  q1_df %>%
+  filter(semester != "Winter2015",
+         quantity_compliant != "no")
+# plot
+q1_df %>%
+  ggplot(aes(x = supplement_consumed, 
+             y = acetate_delta, 
+             color = supplement_consumed)) + 
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_violin() + 
+  geom_jitter() + 
+  xlab(NULL) + 
+  ylab("Delta Acetate Concentration") + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+# run the test
+kruskal.test(supplement_consumed ~ acetate_delta, q1_df)
+
+write_delim(q1_df, path = "figures/q1.txt",
+            delim = "\t", col_names = TRUE, quote = FALSE)
+```
+
+What are your conclusions regarding the reseach question? 
+Because the p-value is extremely high .5005 at the .05 alpha level, then we would fail to reject the null hypothesis. There is no difference any of the variables that influence the change in acetate concentration. 
+<type answer here>
+
+
+# Question 2
+
+Use the SCFA wide dataframe from Lab 5. Check assumptions, conduct statistical tests, make a plot, to answer the question, "Which supplement causes the greatest increase in propionate concentrations?"
+```{r}
+# import and filter data set (q2_df)
+
+q2_df <- read_delim(file = "raw_data/scfa_wide.txt", 
+                        delim = "\t", escape_double = FALSE, 
+                        trim_ws = TRUE, na=c("NA"),
+                        col_names = TRUE,
+                        col_types = cols(participant_id = col_character(),
+                                         semester = col_character(),
+                                         supplement_consumed = col_character(),
+                                         quantity_compliant = col_character(),
+                                         frequency = col_character(),
+                                         acetate_delta = col_double(),
+                                         butyrate_delta = col_double(),
+                                         propionate_delta = col_double())) %>%
+  filter(semester != "Winter2015",
+         quantity_compliant != "no")
+```
+
+```{r}
+# check assumptions
+bartlett.test(propionate_delta ~ supplement_consumed, data = q1_df)
+# Variances are equal
+# Normality
+s1 <- q2_df %>%
+  filter(supplement_consumed == "Accessible") 
+shapiro.test(s1$propionate_delta) #p-value = .23 NORMAL
+
+s2 <- q2_df %>%
+  filter(supplement_consumed == "Arabino") 
+shapiro.test(s2$propionate_delta) #p-value = .97 NORMAL 
+
+s3 <- q2_df %>%
+  filter(supplement_consumed == "BRMPS+Accessible")
+shapiro.test(s3$propionate_delta) #p-value = .09 NOT NORMAL
+
+s4 <- q2_df %>%
+  filter(supplement_consumed == "HiMaize") 
+shapiro.test(s4$propionate_delta) #p-value = .02 NOT NORMAL
+
+s5 <- q2_df %>%
+  filter(supplement_consumed == "HiMaize+BRMPS") 
+shapiro.test(s5$propionate_delta) #p-value = .015 NOT NORMAL
+
+s6 <- q2_df %>%
+  filter(supplement_consumed == "Inulin") 
+shapiro.test(s6$propionate_delta) #p-value = .009 NOT NORMAL
+
+s7 <- q2_df %>%
+  filter(supplement_consumed == "BRMPS") 
+shapiro.test(s7$propionate_delta) #p-value = 7.829e-05 NOT NORMAL
+
+s8 <- q2_df %>%
+  filter(supplement_consumed == "LOODAT") 
+shapiro.test(s8$propionate_delta) #p-value = .89 NORMAL 
+
+s9 <- q2_df %>%
+  filter(supplement_consumed == "none")
+shapiro.test(s9$propionate_delta) #p-value = .0099 NOT NORMAL
+
+s10 <- q2_df %>%
+  filter(supplement_consumed == "Psyllium") 
+shapiro.test(s10$propionate_delta) #p-value = .5866 NORMAL
+
+s11 <- q2_df %>%
+  filter(supplement_consumed == "Psyllium+BRMPS") 
+shapiro.test(s11$propionate_delta) #p-value = .03922 NOT NORMAL
+
+s12 <- q2_df %>%
+  filter(supplement_consumed == "transition_HiMaize") 
+shapiro.test(s12$propionate_delta) #p-value = .7647 NORMAL
+
+# sample size
+q2_df %>%
+  group_by(supplement_consumed) %>%
+  summarise(sample_size = n())
+```
+
+```{r}
+# conduct statistical test
+kruskal.test(supplement_consumed ~ propionate_delta, q2_df)
+```
+
+```{r}
+# make and save plot (q2_plot)
+q2_plot <-  q2_df %>%
+  filter(semester != "Winter2015",
+         quantity_compliant != "no")
+# plot
+q2_df %>%
+  ggplot(aes(x = supplement_consumed, 
+             y = propionate_delta, 
+             color = supplement_consumed)) + 
+  geom_hline(yintercept = 0, linetype = "dashed") + 
+  geom_violin() + 
+  geom_jitter() + 
+  xlab(NULL) + 
+  ylab("Delta Propionate Concentration") + 
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+write_delim(q2_plot, path = "figures/q2_plot.txt",
+            delim = "\t", col_names = TRUE, quote = FALSE)
+```
+
+What are your conclusions regarding the reseach question?
+Because the p-value is greater than the .05 significance level (.5637), we are going to fail to reject the null hypothesis. There is no difference any of the variables that influence the change in propionate concentration. 
+<type answer here>
+
+
+# Question 3
+
+Use the SCFA wide dataframe from Lab 5. Subset and filter the data frame, check assumptions, and choose the appropriate statistical tests, and create a plot to answer the following research question: "Does the proportion of acetate reponses differ between individuals who consumed BRMPS potato (BRMPS) or LOODAT potato supplements?"
+
+```{r}
+# import and filter data set (q3_df)
+q3_df <- q1_df %>%
+  filter(supplement_consumed == "LOODAT" | supplement_consumed == "BRMPS",
+         quantity_compliant != "no",
+         semester != "Winter2015") %>%
+  select(-butyrate_delta, -propionate_delta) %>% 
+  add_column(ace_status = "-") %>%
+  drop_na()
+  
+```
+
+```{r}
+# check assumptions
+#sample size
+q3_df %>%
+  group_by(supplement_consumed) %>%
+  summarise(sample_size = n())
+# BRMPS is larger than 30 
+q3_df$ace_status[q3_df$acetate_delta > 0] <- "positive"
+q3_df$ace_status[q3_df$acetate_delta < 0] <- "negative"
+
+# normality
+s13 <- q3_df %>%
+  filter(supplement_consumed == "BRMPS") 
+shapiro.test(s13$acetate_delta) #p-value = .04394 NOT NORMAL
+
+s14 <- q3_df %>%
+  filter(supplement_consumed == "LOODAT") 
+shapiro.test(s14$acetate_delta) #p-value = .1042 NORMAL
+```
+```{r}
+ace_tab <- with(q3_df, table(supplement_consumed, ace_status))
+```
+
+```{r}
+q3_df %>%
+  group_by(supplement_consumed, ace_status) %>%
+  summarise(Counts = n())
+```
+
+```{r}
+# conduct statistical test
+prop.test(ace_tab, 
+          alternative = "two.sided",
+          correct = FALSE)
+```
+
+```{r}
+# make and save plot (q3_plot)
+```
+
+| | Increased acetate | Total participants | Percent increase |
+|:-----:|:-----:|:-----:|:-----:|
+| BRMPS | 75 | 128 | 58.6% |
+| LOODAT | 9 | 16 | 56.25% | 
+
+What are your conclusions regarding the reseach question?
+Because the p-value .8577 is greater than the .05 significance level, we are going to fail to reject the null hypothesis. There is no difference in the responses of BRMPS or LOODAT based on the proportion of acetate.
+
+<type answer here>
+
+
+# Question 4
+
+Use the SCFA wide dataframe from Lab 5. Subset and filter the data frame, check assumptions, and choose the appropriate statistical tests, and create a plot to answer the following research question: "Does the proportion of propionate reponses differ between individuals who consumed BRMPS potato (BRMPS) or LOODAT potato supplements?"
+
+```{r}
+# import and filter data set (q4_df)
+q4_df <- q1_df %>%
+  filter(supplement_consumed == "LOODAT" | supplement_consumed == "BRMPS",
+         quantity_compliant != "no",
+         semester != "Winter2015") %>%
+  select(-butyrate_delta, -acetate_delta) %>% 
+  add_column(prop_status = "-") %>%
+  drop_na()
+```
+
+```{r}
+# check assumptions
+#sample size
+q4_df %>%
+  group_by(supplement_consumed) %>%
+  summarise(sample_size = n())
+# BRMPS is a large enough sample size > 30
+q4_df$prop_status[q4_df$propionate_delta > 0] <- "positive"
+q4_df$prop_status[q4_df$propionate_delta < 0] <- "negative"
+
+# normality
+s15 <- q4_df %>%
+  filter(supplement_consumed == "BRMPS") 
+shapiro.test(s15$propionate_delta) #p-value = 7.829e-05 NOT NORMAL
+
+s16 <- q4_df %>%
+  filter(supplement_consumed == "LOODAT") 
+shapiro.test(s16$propionate_delta) #p-value = 0.8912 NORMAL
+```
+
+```{r}
+prop_tab <- with(q4_df, table(supplement_consumed, prop_status))
+
+q4_df %>%
+  group_by(supplement_consumed, prop_status) %>%
+  summarise(Counts = n())
+```
+
+```{r}
+# conduct statistical test
+prop.test(prop_tab, 
+          alternative = "two.sided",
+          correct = FALSE)
+```
+
+```{r}
+# make and save plot (q4_plot)
+```
+
+| | Increased propionate | Total participants | Percent increase |
+|:-----:|:-----:|:-----:|:-----:|
+| BRMPS | 54 | 127 | 42.5% |
+| LOODAT | 7 | 16 | 43.75% | 
+
+What are your conclusions regarding the reseach question?
+Because the p-value .9253 is greater than the .05 significance level, we are going to fail to reject the null hypothesis. There is no difference in the responses of BRMPS or LOODAT based on the proportion of propionate.
+
+<type answer here>
+
+
+-----
+end
